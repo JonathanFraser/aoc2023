@@ -4,64 +4,53 @@ from typing import List
 folder = os.path.dirname(os.path.abspath(__file__))
 input_file = os.path.join(folder,"input.txt")
 
-
 def memoize(fnc):
     cache = {}
-    def wrapper(state,groups,must_match="?.#"):
-        key = ("".join(state),",".join([str(g) for g in groups]),must_match)
+    def wrapper(state,groups,group_index=None):
+        key = ("".join(state),",".join([str(g) for g in groups]),group_index)
         if key in cache:
             return cache[key]
-        res = fnc(state,groups,must_match=must_match)
+        res = fnc(state,groups,group_index=group_index)
         cache[key]=res
         return res
     return wrapper
 
 @memoize
-def options(state,groups,must_match='?.#'):
+def options(state,groups,group_index=None):
+    groups_left = len(groups) or (group_index and group_index > 0)
+
     if len(state) == 0:
-        if len(groups):
+        if groups_left:
             return 0
         else:
             return 1
         
-    if len(groups) == 0:
-        if "#" in state:
+    if not groups_left:
+        if "#" in state: #no groups but broken gear, not possible no options
             return 0
         else:
-            return 1
-    
-    if state[0] not in must_match:
-        return 0 
-    
-    if groups[0] == 1: #first group is of length 1
-        if state[0] == '.':
-            return options(state[1:],groups) #eat the working gear
+            return 1 #assume all remaining is 
+
+    if group_index == None:
         if state[0] == '#':
-            return options(state[1:],groups[1:],must_match='.?') #match the broken gear and consume group
+            return options(state[1:],groups[1:],group_index=groups[0]-1) #enter group
         
-        if state[0] == '?':
-            t = 0
-            if '.' in must_match:
-                t +=  options(state[1:],groups) # assume next is '.' and carry forward
-            if '#' in must_match:
-                t += options(state[1:],groups[1:],must_match='.?') # assume next is '#' and carry forward
-            return t
-    else:
         if state[0] == '.':
-            return options(state[1:],groups) #eag working gear, don't touch groups
-        if state[0] == '#':
-            return options(state[1:],[groups[0]-1]+groups[1:], must_match="?#")
-        if state[0] == '?':
-            t = 0
-            if '.' in must_match:
-                t += options(state[1:],groups)
-            if '#' in must_match:
-                t += options(state[1:],[groups[0]-1]+groups[1:], must_match="?#")
-            return  t
+            return options(state[1:],groups,group_index=None) # carry on
         
-    raise RuntimeError(f"WTF: {state} groups")
+        return options(state[1:],groups[1:],group_index=groups[0]-1) + options(state[1:],groups,group_index=None)
+
+    if group_index == 0: #we've just left a group
+        if state[0] in '?.': # it needs to be a '.'
+            return options(state[1:],groups,group_index=None) 
         
+        return 0
     
+    # we're in a group it can't be anything but '.'
+    if state[0] == '.':
+        return 0
+    
+    return options(state[1:],groups,group_index=group_index-1) # eat '#' or '?' and assume '#', shrink group
 
 
     
@@ -74,7 +63,8 @@ def solve():
         for link in f.readlines():
             (states,keys) = link.strip().split(' ')
             grps = [int(k.strip()) for k in keys.split(',')]
-            m += options(list(states),grps)
+            opts = options(list(states),grps)
+            m += opts
             expand_options = "?".join(5*[states])
             expand_groups = 5*grps
             mult += options(list(expand_options),expand_groups)
