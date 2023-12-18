@@ -7,7 +7,7 @@ import queue
 from typing import List
 from dataclasses import dataclass,field
 folder = os.path.dirname(os.path.abspath(__file__))
-input_file = os.path.join(folder,"test.txt")
+input_file = os.path.join(folder,"input.txt")
 
 
 up = (-1,0)
@@ -16,6 +16,7 @@ left = (0,-1)
 right = (0,1)
 
 dirs = [left,right,up,down]
+arr = ['<','>','^','v']
 
 lefts = [3,2,0,1]
 rights = [2,3,1,0]
@@ -52,21 +53,26 @@ def is_outside(map,option) -> bool:
 def options(map: np.array,current_option: PathOption,ultra=False) -> List[PathOption]:
     filtered_options = []
     dst = range(1,4)
+    start = 0
     if ultra:
-        dst = range(4,11)
+        dst = range(1,11)
+        start = 3
 
     o = dirs[current_option.current_dir]
 
     next_locs = [(current_option.location[0]+d*o[0],current_option.location[1]+d*o[1]) for d in dst]
     next_locs = [nl for nl in next_locs if not is_outside(map,nl)]
-    weights = [ map[nl[0],nl[1]] for nl in next_locs]
+    weights = [ int(map[nl[0],nl[1]]) for nl in next_locs]
     weights = np.cumsum(weights)
+
+    next_locs = next_locs[start:]
+    weights = weights[start:]
+  
     for (nl,w) in zip(next_locs,weights):
 
         left = lefts[current_option.current_dir]
         right = rights[current_option.current_dir]
 
-   
         filtered_options.append((PathOption(nl,left),w))
         filtered_options.append((PathOption(nl,right),w))
 
@@ -96,15 +102,39 @@ def solve_graph(map,ultra=False):
     ends = []
     for d in range(0,4):
         ends.append(PathOption((map.shape[0]-1,map.shape[1]-1),d).encode(map))
-    return min(dist[ends])
+
+    paths = dist[ends]
+    #print(paths)
+    end_loc = np.argmin(paths)
+    #print(end_loc)
+    #current = ends[end_loc]
+    #map2 = map.copy()
+    #while current not in starts:
+    #    previous = pred[current]
+    #    prev = PathOption.decode(previous,map)
+    #    curr = PathOption.decode(current,map)
+    #    map2[prev.location[0],prev.location[1]] = arr[prev.current_dir]
+    #    current = previous
+    #print(map2)
+
+    #map3 = np.zeros(map.shape)
+    #map3[:,:] = np.inf 
+    #for i in range(0,total(map)):
+    #    o = PathOption.decode(i,map)
+    #    map3[o.location[0],o.location[1]] = min(map3[o.location[0],o.location[1]],dist[i])
+#
+    #print(map3)
+
+    
+    return paths[end_loc]
 
 def solve(): 
     with open(input_file,'r') as f:
         lines = []
         for link in f.readlines():
-            lines.append(list([int(l) for l in link.strip()]))
+            lines.append(list([l for l in link.strip()]))
 
-        map = np.array(lines,dtype=int)
+        map = np.array(lines)
  
         print(solve_graph(map))
         print(solve_graph(map,ultra=True))
